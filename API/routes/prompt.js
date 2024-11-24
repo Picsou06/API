@@ -11,8 +11,11 @@ router.get('/getprompt', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   const { goal, level, machines, duration } = req.query;
 
-  if (!token || !goal || !level || !machines || !duration) {
-    return res.status(400).json({ error: 'Missing parameters' });
+  if (!token) {
+    return res.status(400).json({ error: 'Missing token!' });
+  }
+  if (!goal || !level || !machines || !duration) {
+    return res.status(400).json({ error: 'Missing parameters'});
   }
 
   const user = await verifyToken(token);

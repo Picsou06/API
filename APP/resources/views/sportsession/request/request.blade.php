@@ -11,7 +11,7 @@
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <div class="container mt-5">
                         <h2>Sport Session Request Form</h2>
-                        <form action="/session-request" method="POST">
+                        <form action="/request-session" method="POST" class="space-y-4">
                             @csrf
 
                             <!-- Error Messages -->
@@ -19,7 +19,7 @@
                                 <div class="mb-4">
                                     <ul>
                                         @foreach ($errors->all() as $error)
-                                            <li class="text-white-500">{{ $error }}</li>
+                                            <li class="text-red-500">{{ $error }}</li>
                                         @endforeach
                                     </ul>
                                 </div>
@@ -27,11 +27,11 @@
 
                             <div class="form-group">
                                 <label for="goal">What is your goal?</label>
-                                <input type="text" class="form-control" id="goal" name="goal" required>
+                                <input type="text" class="form-control bg-black text-white" id="goal" name="goal" required>
                             </div>
                             <div class="form-group">
                                 <label for="level">What is your level?</label>
-                                <select class="form-control" id="level" name="level" required>
+                                <select class="form-control bg-black text-white" id="level" name="level" required>
                                     <option value="beginner">Beginner</option>
                                     <option value="intermediate">Intermediate</option>
                                     <option value="advanced">Advanced</option>
@@ -40,13 +40,12 @@
 
                             <div class="form-group">
                                 <label for="machines">Which machines do you have access to?</label>
-                                <input type="text" class="form-control" id="machines" name="machines" required>
+                                <input type="text" class="form-control bg-black text-white" id="machines" name="machines" required>
                             </div>
 
                             <div class="form-group">
-                                <label for="machines"></label>
-                                <label for="duration">Programme sur combien de semaine?</label>
-                                <input type="range" class="form-control" id="duration" name="duration" min="1" max="8" required>
+                                <label for="duration">Program duration (in weeks): <span id="durationValue">4</span></label>
+                                <input type="range" class="form-control" id="duration" name="duration" min="1" max="8" value="4" required oninput="document.getElementById('durationValue').innerText = this.value">
                             </div>
 
                             <button type="submit" class="btn btn-primary">Submit</button>
