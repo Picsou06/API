@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users_information_database', function (Blueprint $table) {
+        Schema::create('users_information', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users');
-            $table->integer('taille');
-            $table->float('poids');
+            $table->integer('size');
+            $table->float('weight');
             $table->integer('sexe');
-            $table->integer('nb_seance_max');
-            $table->integer('duree_seance_max');
+            $table->integer('nb_session');
+            $table->integer('session_duration');
             $table->float('max_weight');
         });
     }
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users_information_database');
+        Schema::dropIfExists('users_information');
     }
 };

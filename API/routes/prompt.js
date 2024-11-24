@@ -20,12 +20,13 @@ router.get('/getprompt', async (req, res) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  const userInfo = await query('SELECT * FROM users WHERE id = ?', [user.id]);
+  const birth = await query('SELECT birth FROM users WHERE id = ?', [user.id]);
+  const userinfo = await query('SELECT * FROM user_information WHERE user_id = ?', [user.id]);
   if (userInfo.length === 0) {
     return res.status(404).json({ error: 'User information not found' });
   }
 
-  const birthDate = new Date(userInfo[0].naissance);
+  const birthDate = new Date(userInfo[0].birth);
   const ageDifMs = Date.now() - birthDate.getTime();
   const ageDate = new Date(ageDifMs);
   const age = Math.abs(ageDate.getUTCFullYear() - 1970);  
