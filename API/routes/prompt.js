@@ -19,14 +19,15 @@ router.get('/getprompt', async (req, res) => {
   if (!user) {
     return res.status(401).json({ error: 'Invalid token' });
   }
+  const user_id = user.user_id
 
-  const birth = await query('SELECT birth FROM users WHERE id = ?', [user.id]);
-  const userinfo = await query('SELECT * FROM user_information WHERE user_id = ?', [user.id]);
+  const birth = await query('SELECT birth FROM users WHERE id = ?', [user_id]);
+  const userInfo = await query('SELECT * FROM users_information WHERE user_id = ?', [user_id]);
   if (userInfo.length === 0) {
     return res.status(404).json({ error: 'User information not found' });
   }
 
-  const birthDate = new Date(userInfo[0].birth);
+  const birthDate = new Date(birth[0].birth);
   const ageDifMs = Date.now() - birthDate.getTime();
   const ageDate = new Date(ageDifMs);
   const age = Math.abs(ageDate.getUTCFullYear() - 1970);  
@@ -42,14 +43,14 @@ router.get('/getprompt', async (req, res) => {
       "seance_de_sport": {
         "informations_de_base": {
           "nombre_de_seances_par_semaine": 4,
-          "duree_maximale_seance_minutes": ${userInfo[0].duree_seance_max}
+          "duree_maximale_seance_minutes": ${userInfo[0].session_duration}
         },
         "semaines": [`;
-    oldprompt = `Aidez-moi à créer un programme d'entraînement adapté à mon niveau ${niveau} et à mes objectifs ${objectif}. Proposez-moi des exercices que je peux faire avec ${exercices} pour atteindre mes objectifs. Mes informations : ma taille : ${userInfo[0].taille}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_seance_max}, durée maximum de séance de : ${userInfo[0].duree_seance_max}. Je veux que ta réponse soit uniquement sous la forme d'un JSON structuré comme suit (et sans autre commentaire ni code) :
+    oldprompt = `Aidez-moi à créer un programme d'entraînement adapté à mon niveau ${niveau} et à mes objectifs ${objectif}. Proposez-moi des exercices que je peux faire avec ${exercices} pour atteindre mes objectifs. Mes informations : ma taille : ${userInfo[0].size}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_session}, durée maximum de séance de : ${userInfo[0].session_duration}. Je veux que ta réponse soit uniquement sous la forme d'un JSON structuré comme suit (et sans autre commentaire ni code) :
 
     Faites attention à bien organiser le programme d'entraînement sur plusieurs semaines, si nécessaire. Vous devez limiter le nombre de séances à 4 maximum par semaine. Chaque semaine peut inclure des exercices différents, avec des variations sur les poids, les séries et les types d'exercices. Assurez-vous de respecter les informations suivantes pour chaque jour et chaque séance :
     - Ne proposez que des exercices adaptés à mon sexe, poids maximum porté, et ma condition physique.
-    - Respectez la durée de la séance donnée : la durée de chaque séance ne doit pas dépasser ${userInfo[0].duree_seance_max} minutes.
+    - Respectez la durée de la séance donnée : la durée de chaque séance ne doit pas dépasser ${userInfo[0].session_duration} minutes.
     - Crée moi uniquement la structure de la première semaine.
     
     {
@@ -98,11 +99,11 @@ router.get('/getprompt', async (req, res) => {
       finalAnswer += ','+JSON.stringify(answer);
     }
 
-      prompt = `Aidez-moi à créer un programme d'entraînement adapté à mon niveau ${niveau} et à mes objectifs ${objectif}. Proposez-moi des exercices que je peux faire avec ${exercices} pour atteindre mes objectifs. Mes informations : ma taille : ${userInfo[0].taille}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_seance_max}, durée maximum de séance de : ${userInfo[0].duree_seance_max}:
+      prompt = `Aidez-moi à créer un programme d'entraînement adapté à mon niveau ${niveau} et à mes objectifs ${objectif}. Proposez-moi des exercices que je peux faire avec ${exercices} pour atteindre mes objectifs. Mes informations : ma taille : ${userInfo[0].taille}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_session}, durée maximum de séance de : ${userInfo[0].session_duration}:
 
       Faites attention à bien organiser le programme d'entraînement sur plusieurs semaines, si nécessaire. Vous devez limiter le nombre de séances à 4 maximum par semaine. Chaque semaine peut inclure des exercices différents, avec des variations sur les poids, les séries et les types d'exercices. Assurez-vous de respecter les informations suivantes pour chaque jour et chaque séance :
       - Ne proposez que des exercices adaptés à mon sexe, poids maximum porté, et ma condition physique.
-      - Respectez la durée de la séance donnée : la durée de chaque séance ne doit pas dépasser ${userInfo[0].duree_seance_max} minutes.
+      - Respectez la durée de la séance donnée : la durée de chaque séance ne doit pas dépasser ${userInfo[0].session_duration} minutes.
       - Crée moi uniquement la structure de la semaine ${i} et met le "numero_semaine": à ${i}. Attention si le numero de semaine est le même que la semaine précédente, cela est une erreur.
       - Sachant que la semaine dernière j'ai fais ces exercices ${answer}.
 

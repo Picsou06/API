@@ -1,6 +1,17 @@
 <x-guest-layout>
-    <form method="POST" action="{{ route('register') }}">
+    <form method="POST" action="{{ route('registration_form') }}">
         @csrf
+
+        <!-- Error Messages -->
+        @if ($errors->any())
+            <div class="mb-4">
+                <ul>
+                    @foreach ($errors->all() as $error)
+                        <li class="text-white-500">{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <!-- Size -->
         <div>
@@ -20,9 +31,9 @@
         <div class="mt-4">
             <x-input-label for="sex" :value="__('Sex')" />
             <select id="sex" name="sex" class="block mt-1 w-full" required>
-                <option value="male">{{ __('Male') }}</option>
-                <option value="female">{{ __('Female') }}</option>
-                <option value="other">{{ __('Other') }}</option>
+                <option value=0>{{ __('Male') }}</option>
+                <option value=1>{{ __('Female') }}</option>
+                <option value=2>{{ __('Other') }}</option>
             </select>
             <x-input-error :messages="$errors->get('sex')" class="mt-2" />
         </div>
