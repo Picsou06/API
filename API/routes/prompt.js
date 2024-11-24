@@ -9,9 +9,9 @@ const router = express.Router();
 
 router.get('/getprompt', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  const { objectif, niveau, exercices } = req.query;
+  const { goal, level, machines, duration } = req.query;
 
-  if (!token || !objectif || !niveau || !exercices) {
+  if (!token || !goal || !level || !machines || !duration) {
     return res.status(400).json({ error: 'Missing parameters' });
   }
 
@@ -31,7 +31,7 @@ router.get('/getprompt', async (req, res) => {
   const ageDifMs = Date.now() - birthDate.getTime();
   const ageDate = new Date(ageDifMs);
   const age = Math.abs(ageDate.getUTCFullYear() - 1970);  
-  let i = 1;
+  let i;
   let finalAnswer;
   let oldprompt;
   let chatCompletion;
@@ -46,10 +46,10 @@ router.get('/getprompt', async (req, res) => {
           "duree_maximale_seance_minutes": ${userInfo[0].session_duration}
         },
         "semaines": [`;
-    oldprompt = `Aidez-moi à créer un programme d'entraînement adapté à mon niveau ${niveau} et à mes objectifs ${objectif}. Proposez-moi des exercices que je peux faire avec ${exercices} pour atteindre mes objectifs. Mes informations : ma taille : ${userInfo[0].size}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_session}, durée maximum de séance de : ${userInfo[0].session_duration}. Je veux que ta réponse soit uniquement sous la forme d'un JSON structuré comme suit (et sans autre commentaire ni code) :
+    oldprompt = `Aidez-moi à créer un programme d'entraînement adapté à mon level ${level} et à mes goals ${goal}. Proposez-moi des machines que je peux faire avec ${machines} pour atteindre mes goals en ${duration} semaines. Mes informations : ma taille : ${userInfo[0].size}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_session}, durée maximum de séance de : ${userInfo[0].session_duration}. Je veux que ta réponse soit uniquement sous la forme d'un JSON structuré comme suit (et sans autre commentaire ni code) :
 
-    Faites attention à bien organiser le programme d'entraînement sur plusieurs semaines, si nécessaire. Vous devez limiter le nombre de séances à 4 maximum par semaine. Chaque semaine peut inclure des exercices différents, avec des variations sur les poids, les séries et les types d'exercices. Assurez-vous de respecter les informations suivantes pour chaque jour et chaque séance :
-    - Ne proposez que des exercices adaptés à mon sexe, poids maximum porté, et ma condition physique.
+    Faites attention à bien organiser le programme d'entraînement sur plusieurs semaines, si nécessaire. Vous devez limiter le nombre de séances à 4 maximum par semaine. Chaque semaine peut inclure des machines différents, avec des variations sur les poids, les séries et les types d'machines. Assurez-vous de respecter les informations suivantes pour chaque jour et chaque séance :
+    - Ne proposez que des machines adaptés à mon sexe, poids maximum porté, et ma condition physique.
     - Respectez la durée de la séance donnée : la durée de chaque séance ne doit pas dépasser ${userInfo[0].session_duration} minutes.
     - Crée moi uniquement la structure de la première semaine.
     
@@ -59,7 +59,7 @@ router.get('/getprompt', async (req, res) => {
               {
                 "jour": "Le jour de la semaine",
                 "duree_seance_minutes": Durée de la première seance (doit respecter la durée maximale) Doit être un int, ne pas afficher les jours de repos!
-                "exercices": [
+                "machines": [
                   {
                     "nom": "Nom de l'exercice",
                     "description": "Description de l'exercice, explication du mouvement à réaliser",
@@ -83,7 +83,8 @@ router.get('/getprompt', async (req, res) => {
       chatCompletion = await getGroqChatCompletion(oldprompt);
       answer = await extraireEtFormaterJSON(chatCompletion.choices[0].message.content);
     }
-  for (i = 2; i <= 4; i++) {
+    i = 2;
+  while(i <= duration) {
       if (i === 2) {
       chatCompletion = await getGroqChatCompletion(oldprompt);
       answer = await extraireEtFormaterJSON(chatCompletion.choices[0].message.content);
@@ -99,13 +100,13 @@ router.get('/getprompt', async (req, res) => {
       finalAnswer += ','+JSON.stringify(answer);
     }
 
-      prompt = `Aidez-moi à créer un programme d'entraînement adapté à mon niveau ${niveau} et à mes objectifs ${objectif}. Proposez-moi des exercices que je peux faire avec ${exercices} pour atteindre mes objectifs. Mes informations : ma taille : ${userInfo[0].taille}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_session}, durée maximum de séance de : ${userInfo[0].session_duration}:
+      prompt = `Aidez-moi à créer un programme d'entraînement adapté à mon level ${level} et à mes goals ${goal}. Proposez-moi des machines que je peux faire avec ${machines} pour atteindre mes goals en ${duration} semaines. Mes informations : ma taille : ${userInfo[0].taille}, mon poids : ${userInfo[0].poids}, mon âge : ${age}, mon sexe : ${userInfo[0].sexe}, mon poids maximum porté : ${userInfo[0].max_weight}, nombre maximum de séances par semaine : ${userInfo[0].nb_session}, durée maximum de séance de : ${userInfo[0].session_duration}:
 
-      Faites attention à bien organiser le programme d'entraînement sur plusieurs semaines, si nécessaire. Vous devez limiter le nombre de séances à 4 maximum par semaine. Chaque semaine peut inclure des exercices différents, avec des variations sur les poids, les séries et les types d'exercices. Assurez-vous de respecter les informations suivantes pour chaque jour et chaque séance :
-      - Ne proposez que des exercices adaptés à mon sexe, poids maximum porté, et ma condition physique.
+      Faites attention à bien organiser le programme d'entraînement sur plusieurs semaines, si nécessaire. Vous devez limiter le nombre de séances à 4 maximum par semaine. Chaque semaine peut inclure des machines différents, avec des variations sur les poids, les séries et les types d'machines. Assurez-vous de respecter les informations suivantes pour chaque jour et chaque séance :
+      - Ne proposez que des machines adaptés à mon sexe, poids maximum porté, et ma condition physique.
       - Respectez la durée de la séance donnée : la durée de chaque séance ne doit pas dépasser ${userInfo[0].session_duration} minutes.
       - Crée moi uniquement la structure de la semaine ${i} et met le "numero_semaine": à ${i}. Attention si le numero de semaine est le même que la semaine précédente, cela est une erreur.
-      - Sachant que la semaine dernière j'ai fais ces exercices ${answer}.
+      - Sachant que la semaine dernière j'ai fais ces machines ${answer}.
 
       Je veux que ta réponse soit uniquement sous la forme d'un JSON structuré comme suit (et sans autre commentaire ni code) :
       {
@@ -114,7 +115,7 @@ router.get('/getprompt', async (req, res) => {
                 {
                   "jour": "Le jour de la semaine",
                   "duree_seance_minutes": "Durée de la première seance (doit respecter la durée maximale)",
-                  "exercices": [
+                  "machines": [
                     {
                       "nom": "Nom de l'exercice",
                       "description": "Description de l'exercice, explication du mouvement à réaliser",
@@ -131,6 +132,7 @@ router.get('/getprompt', async (req, res) => {
               ]
             },
       `;
+      i++;
     }
     finalAnswer += ','+JSON.stringify(answer);
     finalAnswer += `]

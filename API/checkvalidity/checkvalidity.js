@@ -1,9 +1,9 @@
-export async function checkNbSerieValidity(exercices) {
-    if (!Array.isArray(exercices)) {
+export async function checkNbSerieValidity(machines) {
+    if (!Array.isArray(machines)) {
         return false;
     }
 
-    for (const item of exercices) {
+    for (const item of machines) {
         if (item.nombre_de_series !== item.poids_par_serie.length) {
             return false;
         }
@@ -12,12 +12,12 @@ export async function checkNbSerieValidity(exercices) {
     return true;
 }
 
-export async function checkTypeValidity(exercices) {
-    if (!Array.isArray(exercices)) {
+export async function checkTypeValidity(machines) {
+    if (!Array.isArray(machines)) {
         return false;
     }
 
-    for (const item of exercices) {
+    for (const item of machines) {
         if (item.nombre_de_series !== item.poids_par_serie.length) {
             return false;
         }
@@ -51,12 +51,12 @@ export async function checkDureeExerciceValidity(seances) {
     }
 
     for (const item of seances) {
-        let totalDureeExercices = 0;
-        for (const exercice of item.exercices) {
-            totalDureeExercices += parseInt(exercice.duree_exercice);
+        let totalDureemachines = 0;
+        for (const exercice of item.machines) {
+            totalDureemachines += parseInt(exercice.duree_exercice);
         }
 
-        if (totalDureeExercices > item.duree_seance_minutes) {
+        if (totalDureemachines > item.duree_seance_minutes) {
             return false;
         }
     }
@@ -64,12 +64,12 @@ export async function checkDureeExerciceValidity(seances) {
     return true;
 }
 
-export async function checkPoidsValidity(exercices) {
-    if (!Array.isArray(exercices)) {
+export async function checkPoidsValidity(machines) {
+    if (!Array.isArray(machines)) {
         return false;
     }
 
-    for (const item of exercices) {
+    for (const item of machines) {
         for (const poids of item.poids_par_serie) {
             if (poids < 0) {
                 return false;
@@ -85,12 +85,12 @@ export async function checkAllValidity(data) {
 
     for (const semaine of semaines) {
         for (const seance of semaine.seances) {
-            const exercices = seance.exercices;
-            if (!(await checkNbSerieValidity(exercices)) ||
-                !(await checkTypeValidity(exercices)) ||
+            const machines = seance.machines;
+            if (!(await checkNbSerieValidity(machines)) ||
+                !(await checkTypeValidity(machines)) ||
                 !(await checkJourValidity(semaine.seances)) ||
                 !(await checkDureeExerciceValidity(semaine.seances)) ||
-                !(await checkPoidsValidity(exercices))) {
+                !(await checkPoidsValidity(machines))) {
                 return false;
             }
         }
