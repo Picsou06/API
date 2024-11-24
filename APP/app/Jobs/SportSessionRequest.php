@@ -5,10 +5,17 @@ namespace App\Jobs;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use App\Models\sportSession;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
+use App\Models\User_information;
 
 class SportSessionRequest implements ShouldQueue
 {
-    use Queueable;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     protected $goal;
     protected $level;
@@ -30,74 +37,167 @@ class SportSessionRequest implements ShouldQueue
 
     public function handle(): void
     {
-        $url = 'http://Picsou06.fr:3002/api/getprompt';
-        
-        // Préparation des paramètres de requête
-        $queryParams = http_build_query([
-            'goal' => $this->goal,
-            'level' => $this->level,
-            'machines' => $this->machines,
-            'duration' => $this->duration,
-            'token' => $this->token,
-        ]);
-
-        $fullUrl = $url . '?' . $queryParams;
-
-        // Initialisation de cURL
-        $ch = curl_init();
-
-        curl_setopt($ch, CURLOPT_URL, $fullUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        
-        // Ajout du header d'authentification
-        $headers = [
-            'Authorization:Bearer ' . $this->token,
-        ];
-        print_r($headers);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-        // Exécution de la requête
-        $response = curl_exec($ch);
-
-        // Gestion des erreurs
-        if (curl_errno($ch)) {
-            echo 'Erreur cURL : ' . curl_error($ch);
+        // Valider le token et récupérer l'utilisateur
+        $user_id = DB::table('sessions')->where('id', $this->token)->value('user_id');
+        Log::info('User ID: ' . $user_id);
+        $user = User::where('id', $user_id)->first();
+        if (!$user) {
+            Log::error('Token invalide.');
+            return;
         }
 
-        // Fermeture de cURL
-        curl_close($ch);
+        $userInfo = User_information::where('user_id', $user_id)->first();
+        if (!$userInfo) {
+            Log::error('Informations utilisateur introuvables.');
+            return;
+        }
 
-        // Traitement de la réponse
-        $data = json_decode($response, true);
+        $birthDate = new \DateTime($user->birth);
+        $currentDate = new \DateTime();
+        $age = $currentDate->diff($birthDate)->y;
 
-        // Création des sessions de sport
-        foreach ($data['seance_de_sport']['semaines'] as $semaine) {
-            foreach ($semaine['seances'] as $seance) {
-                $sportSession = new sportSession();
-                $date = new \DateTime();
-                $daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-                $currentDayOfWeek = $date->format('N') - 1; // 0 (for Monday) through 6 (for Sunday)
-                $targetDayOfWeek = array_search($seance['jour'], $daysOfWeek);
+        // Générer les prompts pour créer les programmes
+        $programs = [];
+        for ($week = 1; $week <= $this->duration; $week++) {
+            $prompt = $this->generatePrompt($week, $userInfo, $age);
+            $program = $this->getGroqChatCompletion($prompt);
 
-                if ($targetDayOfWeek !== false) {
-                    $daysToAdd = ($targetDayOfWeek - $currentDayOfWeek + 7) % 7;
-                    if ($daysToAdd == 0) {
-                        $daysToAdd = 7;
-                    }
-                    $date->modify("+$daysToAdd days");
-                }
-
-                // If it's the second week, add an additional 7 days
-                if ($semaine['numero'] == 2) {
-                    $date->modify('+7 days');
-                }
-
-                $sportSession->date = $date->format('Y-m-d');
-                $sportSession->duration = $seance['duree_seance_minutes'];
-                $sportSession->details = json_encode($seance['machines']);
-                $sportSession->save();
-                \Log::info('Sport session created for date: ' . $sportSession->date);
+            if ($program) {
+                $programs[] = $program;
             }
         }
+
+        // Sauvegarder les programmes générés dans la base de données
+        foreach ($programs as $weekProgram) {
+            foreach ($weekProgram['seances'] as $seance) {
+                $this->saveSportSession($seance, $weekProgram['numero']);
+            }
+        }
+    }
+
+    private function generatePrompt($week, $userInfo, $age): string
+    {
+        return "
+            Aidez-moi à créer un programme d'entraînement adapté à mon niveau {$this->level} et à mes objectifs {$this->goal}.
+            Proposez des exercices que je peux réaliser avec {$this->machines}.
+            Mes informations : 
+            - Taille : {$userInfo->size}
+            - Poids : {$userInfo->poids}
+            - Âge : {$age}
+            - Sexe : {$userInfo->sexe}
+            - Poids maximum porté : {$userInfo->max_weight}
+            - Séances par semaine : {$userInfo->nb_session}
+            - Durée maximale de séance : {$userInfo->session_duration} minutes.
+
+            Limitez le programme à 4 séances maximum par semaine. Organisez chaque semaine différemment avec des variations.
+            Structurez uniquement la semaine {$week} sous forme JSON :
+            {
+                \"numero_semaine\": {$week},
+                \"seances\": [
+                    {
+                        \"jour\": \"Jour de la semaine\",
+                        \"duree_seance_minutes\": 0,
+                        \"machines\": [
+                            {
+                                \"nom\": \"Nom de l'exercice\",
+                                \"description\": \"Description\",
+                                \"nombre_de_series\": 0,
+                                \"poids_par_serie\": [0],
+                                \"duree_exercice\": 0,
+                                \"repos_entre_series\": 0,
+                                \"type\": \"Type d'exercice\"
+                            }
+                        ]
+                    }
+                ]
+            }";
+    }
+
+    private function getGroqChatCompletion(string $prompt)
+    {
+        try {
+            // Configuration de l'API Groq
+            $apiKey = env('ACCESS_GROK_TOKEN_SECRET');
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type' => 'application/json',
+            ])->post('https://api.groq.com/openai/v1/chat/completions', [
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => $prompt,
+                    ],
+                ],
+                'model' => 'gemma2-9b-it',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                // Extraction et validation de la réponse JSON avec la fonction extraireEtFormaterJSON
+                $formattedResponse = $this->extraireEtFormaterJSON($data['choices'][0]['message']['content']);
+                
+                if ($formattedResponse) {
+                    return $formattedResponse;
+                } else {
+                    Log::error('Réponse JSON invalide : format incorrect');
+                    return null;
+                }
+            } else {
+                Log::error('Erreur API Groq : ' . $response->status() . ' - ' . $response->body());
+                return null;
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception lors de l\'appel à l\'API Groq : ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // Fonction pour extraire et formater le JSON
+    private function extraireEtFormaterJSON($texte)
+    {
+        Log::info('Réponse JSON brute : ' . $texte);
+        $pattern = '/\{(.+)\}/s';
+        if (preg_match($pattern, $texte, $match)) {
+            $jsonString = $match[0];
+            try {
+                $jsonData = json_decode($jsonString, true);
+                return $jsonData;
+            } catch (\Exception $error) {
+                Log::error('Erreur lors de l\'analyse JSON : ' . $error->getMessage());
+                return null;
+            }
+        } else {
+            Log::error('Aucun JSON trouvé dans la réponse');
+            return null;
+        }
+    }
+
+
+    private function saveSportSession($seance, $weekNumber)
+    {
+        $date = new \DateTime();
+        $daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+        $currentDayOfWeek = $date->format('N') - 1; // 0 (Lundi) à 6 (Dimanche)
+        $targetDayOfWeek = array_search($seance['jour'], $daysOfWeek);
+
+        if ($targetDayOfWeek !== false) {
+            $daysToAdd = ($targetDayOfWeek - $currentDayOfWeek + 7) % 7;
+            if ($daysToAdd == 0) {
+                $daysToAdd = 7;
+            }
+            $date->modify("+$daysToAdd days");
+        }
+
+        if ($weekNumber > 1) {
+            $date->modify('+' . (7 * ($weekNumber - 1)) . ' days');
+        }
+
+        sportSession::create([
+            'date' => $date->format('Y-m-d'),
+            'duration' => $seance['duree_seance_minutes'],
+            'details' => json_encode($seance['machines']),
+        ]);
+
+        Log::info('Sport session created for date: ' . $date->format('Y-m-d'));
     }
 }
